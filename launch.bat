@@ -1,0 +1,6 @@
+@echo off
+echo Installing dependencies...
+python -m pip install matplotlib numpy --quiet
+echo Launching Brake Force Calculator...
+python brake_force_calculator.py
+pause
