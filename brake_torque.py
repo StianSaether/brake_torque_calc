@@ -15,6 +15,8 @@ Usage:
 """
 
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import TextBox
@@ -22,10 +24,10 @@ from matplotlib.widgets import TextBox
 G = 9.81
 
 # ── Reference robots ──────────────────────────────────────────────────────────
-ROBOTS = {
-    "Arnold (600 kg, 5°)":      {"mass": 600, "slope_deg": 5.0,                        "color": "#E24B4A"},
-    "Mecanum AMR (400 kg, 3%)": {"mass": 400, "slope_deg": np.degrees(np.arctan(0.03)), "color": "#BA7517"},
-}
+# ROBOTS = {
+#    "Arnold (600 kg, 5°)":      {"mass": 600, "slope_deg": 5.0,                        "color": "#E24B4A"},
+#    "Mecanum AMR (400 kg, 3%)": {"mass": 400, "slope_deg": np.degrees(np.arctan(0.03)), "color": "#BA7517"},
+# }
 
 # ── Physics ───────────────────────────────────────────────────────────────────
 def calc_force(mass, slope_deg):
@@ -127,12 +129,12 @@ unsafe_label = ax_main.text(0, 0, "", fontsize=8.5, style="italic", color="#A32D
                                                    fc="white", ec="none", alpha=0.7))
 robot_plots  = {}
 robot_annots = {}
-for name, r in ROBOTS.items():
-    sc, = ax_main.plot([], [], "o", color=r["color"], markersize=8, zorder=5)
-    an  = ax_main.annotate("", (0, 0), fontsize=8, color=r["color"],
-                            xytext=(7, 0), textcoords="offset points", va="center")
-    robot_plots[name]  = sc
-    robot_annots[name] = an
+#for name, r in ROBOTS.items():
+#    sc, = ax_main.plot([], [], "o", color=r["color"], markersize=8, zorder=5)
+#    an  = ax_main.annotate("", (0, 0), fontsize=8, color=r["color"],
+#                            xytext=(7, 0), textcoords="offset points", va="center")
+#    robot_plots[name]  = sc
+#    robot_annots[name] = an
 
 # ── Draw ──────────────────────────────────────────────────────────────────────
 def draw():
@@ -185,11 +187,11 @@ def draw():
         fontsize=11)
 
     # Reference robots — plot at their actual slope's force on this weight axis
-    for name, r in ROBOTS.items():
-        ry = calc_force(r["mass"], slope)   # force at that mass on current slope
-        robot_plots[name].set_data([r["mass"]], [ry])
-        robot_annots[name].set_position((r["mass"], ry))
-        robot_annots[name].set_text(f"  {name.split('(')[0].strip()}")
+    #for name, r in ROBOTS.items():
+    #    ry = calc_force(r["mass"], slope)   # force at that mass on current slope
+    #    robot_plots[name].set_data([r["mass"]], [ry])
+    #    robot_annots[name].set_position((r["mass"], ry))
+    #    robot_annots[name].set_text(f"  {name.split('(')[0].strip()}")
 
     fig.canvas.draw_idle()
 
