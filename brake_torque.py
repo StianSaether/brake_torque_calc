@@ -1,236 +1,219 @@
 """
-AMR Brake Force Calculator  —  Fix Slope mode
-----------------------------------------------
+AMR Brake Force Calculator — Streamlit version
+-----------------------------------------------
 Fixes the slope angle and plots brake force vs robot weight.
-The relationship is perfectly linear: F = m * g * sin(θ)
-
-The derivative dF/dm = g * sin(θ) is constant for a fixed slope,
-giving the force increase per kg of added weight.
-
-A draggable dot on the curve lets you read off exact values.
+F = m * g * sin(θ)
 
 Usage:
-    pip install matplotlib numpy
-    python brake_force_calculator.py
+    pip install streamlit matplotlib numpy
+    streamlit run brake_torque_streamlit.py
 """
 
 import numpy as np
-import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import TextBox
+import streamlit as st
 
 G = 9.81
+WEIGHT_MIN, WEIGHT_MAX = 10.0, 2000.0
+
+st.set_page_config(page_title="AMR Brake Force Calculator", layout="wide")
+
+st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+        html, body, [class*="css"] {
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+        .main { background-color: #F4F4F2; }
+        .metric-box {
+            background: #E1F5EE;
+            border: 1.5px solid #5DCAA5;
+            border-radius: 8px;
+            padding: 16px 20px;
+            text-align: center;
+        }
+        .metric-box .label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #085041;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .metric-box .value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 26px;
+            font-weight: 600;
+            color: #085041;
+            margin: 4px 0;
+        }
+        .metric-box .sub {
+            font-size: 11px;
+            color: #0F6E56;
+            font-style: italic;
+        }
+        .readout-box {
+            background: #EEEDFE;
+            border: 1.5px solid #AFA9EC;
+            border-radius: 8px;
+            padding: 16px 20px;
+            text-align: center;
+        }
+        .readout-box .label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #3C3089;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .readout-box .value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 22px;
+            font-weight: 600;
+            color: #3C3089;
+            margin: 4px 0;
+        }
+        h1 {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 600;
+            color: #0F2620;
+        }
+        .stSlider > div > div > div > div {
+            background-color: #1D9E75;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # ── Physics ───────────────────────────────────────────────────────────────────
 def calc_force(mass, slope_deg):
     return mass * G * np.sin(np.radians(slope_deg))
 
 def calc_dfdm(slope_deg):
-    """Force increase per kg: dF/dm = g * sin(θ)"""
     return G * np.sin(np.radians(slope_deg))
 
-# ── State ─────────────────────────────────────────────────────────────────────
-state = {
-    "slope_deg": 5.0,
-    "dot_mass":  400.0,
-    "dragging":  False,
-    "updating":  False,
-}
+# ── Header ────────────────────────────────────────────────────────────────────
+st.title("AMR Brake Force Calculator")
+st.caption("Required brake force as a function of robot weight at a fixed slope angle. F = m · g · sin(θ)")
 
-WEIGHT_MIN, WEIGHT_MAX = 10.0, 2000.0
+st.divider()
 
-# ── Figure ────────────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(13, 8.5))
+# ── Controls ──────────────────────────────────────────────────────────────────
+col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([1, 1, 1])
+
+with col_ctrl1:
+    slope_deg = st.number_input(
+        "Fixed slope (°)",
+        min_value=0.1,
+        max_value=89.9,
+        value=5.0,
+        step=0.1,
+        format="%.2f",
+        help="Enter the slope angle in degrees"
+    )
+
+with col_ctrl2:
+    dot_mass = st.slider(
+        "Robot weight (kg)",
+        min_value=int(WEIGHT_MIN),
+        max_value=int(WEIGHT_MAX),
+        value=400,
+        step=1,
+        help="Drag to read off force at a specific weight"
+    )
+
+with col_ctrl3:
+    st.write("")  # spacer
+
+# ── Compute ───────────────────────────────────────────────────────────────────
+masses = np.linspace(WEIGHT_MIN, WEIGHT_MAX, 500)
+forces = calc_force(masses, slope_deg)
+dot_force = calc_force(dot_mass, slope_deg)
+k = calc_dfdm(slope_deg)
+y_top = forces.max() * 1.4
+
+# ── Metric panels ─────────────────────────────────────────────────────────────
+st.markdown("<br>", unsafe_allow_html=True)
+m1, m2, m3 = st.columns(3)
+
+with m1:
+    st.markdown(f"""
+        <div class="readout-box">
+            <div class="label">At selected weight</div>
+            <div class="value">{dot_mass} kg → {dot_force:.1f} N</div>
+            <div class="sub">Required brake force at {slope_deg:.2f}°</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with m2:
+    st.markdown(f"""
+        <div class="metric-box">
+            <div class="label">dF/dm — Force per kg added</div>
+            <div class="value">{k:.4f} N/kg</div>
+            <div class="sub">+1 kg → +{k:.3f} N &nbsp;|&nbsp; +10 kg → +{k*10:.2f} N</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with m3:
+    slope_pct = np.tan(np.radians(slope_deg)) * 100
+    st.markdown(f"""
+        <div class="metric-box">
+            <div class="label">Slope</div>
+            <div class="value">{slope_deg:.2f}° = {slope_pct:.1f}%</div>
+            <div class="sub">sin({slope_deg:.2f}°) = {np.sin(np.radians(slope_deg)):.5f}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Plot ──────────────────────────────────────────────────────────────────────
+fig, ax = plt.subplots(figsize=(12, 5.5))
 fig.patch.set_facecolor("#F4F4F2")
-fig.suptitle("AMR Brake Force Calculator", fontsize=14, fontweight="bold", y=0.98)
+ax.set_facecolor("#FFFFFF")
 
-gs = gridspec.GridSpec(2, 1, left=0.08, right=0.97, top=0.94, bottom=0.05,
-                       hspace=0.48, height_ratios=[3.4, 1.1])
-
-ax_main = fig.add_subplot(gs[0])
-ax_main.set_facecolor("#FFFFFF")
 for sp in ["top", "right"]:
-    ax_main.spines[sp].set_visible(False)
-ax_main.spines["left"].set_color("#CCCCCC")
-ax_main.spines["bottom"].set_color("#CCCCCC")
-ax_main.tick_params(colors="#555555")
-ax_main.grid(True, color="#EEEEEE", linewidth=0.8)
+    ax.spines[sp].set_visible(False)
+ax.spines["left"].set_color("#CCCCCC")
+ax.spines["bottom"].set_color("#CCCCCC")
+ax.tick_params(colors="#555555")
+ax.grid(True, color="#EEEEEE", linewidth=0.8)
 
-# ── Control row: slope input | dot readout | dF/dm box ───────────────────────
-gs_ctrl = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs[1],
-    hspace=0.12, wspace=0.35,
-    height_ratios=[0.35, 0.65],
+# Curve
+ax.plot(masses, forces, color="#1D9E75", linewidth=2.5, zorder=2)
+
+# Fill regions
+ax.fill_between(masses, 0, forces, alpha=0.08, color="#1D9E75", zorder=1)
+ax.fill_between(masses, forces, y_top, alpha=0.05, color="#E24B4A", zorder=1)
+
+# Region labels
+xi = masses[int(len(masses) * 0.25)]
+yi = calc_force(xi, slope_deg)
+ax.text(xi, yi * 0.38, "▲ brake exceeds requirement",
+        fontsize=8.5, style="italic", color="#0F6E56", alpha=0.8,
+        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="none", alpha=0.7))
+ax.text(xi, yi * 1.65, "▼ brake too weak",
+        fontsize=8.5, style="italic", color="#A32D2D", alpha=0.8,
+        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="none", alpha=0.7))
+
+# Dot + crosshairs
+ax.scatter([dot_mass], [dot_force], s=130, color="#534AB7", zorder=6)
+ax.axvline(x=dot_mass, color="#534AB7", linewidth=0.8, linestyle=":", alpha=0.5, zorder=3)
+ax.axhline(y=dot_force, color="#534AB7", linewidth=0.8, linestyle=":", alpha=0.5, zorder=3)
+ax.annotate(f"  {dot_mass} kg\n  {dot_force:.1f} N",
+            (dot_mass, dot_force), fontsize=9, color="#534AB7",
+            xytext=(10, 10), textcoords="offset points")
+
+ax.set_xlim(WEIGHT_MIN, WEIGHT_MAX)
+ax.set_ylim(0, y_top)
+ax.set_xlabel("Robot weight (kg)", color="#555555")
+ax.set_ylabel("Required brake force (N)", color="#555555")
+ax.set_title(
+    f"Brake force vs weight  |  Slope = {slope_deg:.2f}°   "
+    f"(dF/dm = {k:.4f} N/kg)",
+    fontsize=11, color="#222222"
 )
 
-ax_hdr  = [fig.add_subplot(gs_ctrl[0, i]) for i in range(3)]
-ax_inp  = [fig.add_subplot(gs_ctrl[1, i]) for i in range(3)]
+st.pyplot(fig)
+plt.close(fig)
 
-for ax in ax_hdr + ax_inp:
-    ax.set_facecolor("#F4F4F2")
-    for s in ax.spines.values():
-        s.set_visible(False)
-    ax.set_xticks([]); ax.set_yticks([])
-
-# Col 0 — slope input
-ax_hdr[0].text(0.5, 0.5, "Fixed slope (°)", ha="center", va="center",
-               fontsize=10, fontweight="bold", color="#0F6E56",
-               transform=ax_hdr[0].transAxes)
-slope_box = TextBox(ax_inp[0], "", initial="5.00")
-slope_box.text_disp.set_fontsize(13)
-
-# Col 1 — dot readout (purple panel)
-ax_hdr[1].text(0.5, 0.5, "drag the dot  ●", ha="center", va="center",
-               fontsize=9, color="#8880C0", style="italic",
-               transform=ax_hdr[1].transAxes)
-ax_inp[1].set_facecolor("#EEEDFE")
-for s in ax_inp[1].spines.values():
-    s.set_visible(True); s.set_color("#AFA9EC"); s.set_linewidth(1.2)
-readout_text = ax_inp[1].text(0.5, 0.5, "", ha="center", va="center",
-                               fontsize=11, fontweight="bold", color="#3C3089",
-                               transform=ax_inp[1].transAxes)
-
-# Col 2 — dF/dm box (teal panel)
-ax_hdr[2].text(0.5, 0.5, "dF/dm  (force per kg added)", ha="center", va="center",
-               fontsize=10, fontweight="bold", color="#085041",
-               transform=ax_hdr[2].transAxes)
-ax_inp[2].set_facecolor("#E1F5EE")
-for s in ax_inp[2].spines.values():
-    s.set_visible(True); s.set_color("#5DCAA5"); s.set_linewidth(1.2)
-dfdm_line1 = ax_inp[2].text(0.5, 0.65, "", ha="center", va="center",
-                              fontsize=13, fontweight="bold", color="#085041",
-                              transform=ax_inp[2].transAxes)
-dfdm_line2 = ax_inp[2].text(0.5, 0.22, "", ha="center", va="center",
-                              fontsize=8.5, color="#0F6E56", style="italic",
-                              transform=ax_inp[2].transAxes)
-
-# ── Plot objects ──────────────────────────────────────────────────────────────
-fill_safe   = None
-fill_unsafe = None
-curve_line, = ax_main.plot([], [], color="#1D9E75", linewidth=2.5, zorder=2)
-dot_scatter = ax_main.scatter([], [], s=130, color="#534AB7", zorder=6, picker=8)
-dot_vline   = ax_main.axvline(x=0, color="#534AB7", linewidth=0.8,
-                               linestyle=":", alpha=0.5, zorder=3)
-dot_hline   = ax_main.axhline(y=0, color="#534AB7", linewidth=0.8,
-                               linestyle=":", alpha=0.5, zorder=3)
-safe_label   = ax_main.text(0, 0, "", fontsize=8.5, style="italic", color="#0F6E56",
-                             alpha=0.8, bbox=dict(boxstyle="round,pad=0.3",
-                                                   fc="white", ec="none", alpha=0.7))
-unsafe_label = ax_main.text(0, 0, "", fontsize=8.5, style="italic", color="#A32D2D",
-                             alpha=0.8, bbox=dict(boxstyle="round,pad=0.3",
-                                                   fc="white", ec="none", alpha=0.7))
-robot_plots  = {}
-robot_annots = {}
-
-# ── Draw ──────────────────────────────────────────────────────────────────────
-def draw():
-    global fill_safe, fill_unsafe
-    slope = state["slope_deg"]
-    dm    = state["dot_mass"]
-
-    masses = np.linspace(WEIGHT_MIN, WEIGHT_MAX, 500)
-    forces = calc_force(masses, slope)
-
-    curve_line.set_data(masses, forces)
-
-    # Safe/unsafe fill
-    if fill_safe:   fill_safe.remove()
-    if fill_unsafe: fill_unsafe.remove()
-    y_top = forces.max() * 1.4
-    fill_safe   = ax_main.fill_between(masses, 0,     forces, alpha=0.08,
-                                        color="#1D9E75", zorder=1)
-    fill_unsafe = ax_main.fill_between(masses, forces, y_top,  alpha=0.05,
-                                        color="#E24B4A", zorder=1)
-
-    # Safe/unsafe labels at ~25% of x range
-    xi = masses[int(len(masses) * 0.25)]
-    yi = calc_force(xi, slope)
-    safe_label.set_position((xi, yi * 0.38))
-    safe_label.set_text("▲ brake exceeds requirement")
-    unsafe_label.set_position((xi, yi * 1.65))
-    unsafe_label.set_text("▼ brake too weak")
-
-    # Dot
-    df = calc_force(dm, slope)
-    dot_scatter.set_offsets([[dm, df]])
-    dot_vline.set_xdata([dm])
-    dot_hline.set_ydata([df])
-    readout_text.set_text(f"Weight: {dm:.0f} kg\nForce:  {df:.1f} N")
-
-    # dF/dm panel
-    k = calc_dfdm(slope)
-    dfdm_line1.set_text(f"{k:.4f} N/kg")
-    dfdm_line2.set_text(f"+1 kg  →  +{k:.3f} N     |     +10 kg  →  +{k*10:.2f} N")
-
-    # Axes
-    ax_main.set_xlim(WEIGHT_MIN, WEIGHT_MAX)
-    ax_main.set_ylim(0, y_top)
-    ax_main.set_xlabel("Robot weight (kg)", color="#555555")
-    ax_main.set_ylabel("Required brake force (N)", color="#555555")
-    ax_main.set_title(
-        f"Brake force vs weight  |  Slope = {slope:.2f}°   "
-        f"(dF/dm = {calc_dfdm(slope):.4f} N/kg)",
-        fontsize=11)
-
-    fig.canvas.draw_idle()
-
-# ── Callbacks ─────────────────────────────────────────────────────────────────
-def on_slope_box(text):
-    if state["updating"]:
-        return
-    try:
-        val = float(text)
-        if val <= 0 or val >= 90:
-            return
-    except ValueError:
-        return
-    state["slope_deg"] = val
-    draw()
-
-slope_box.on_submit(on_slope_box)
-slope_box.on_text_change(on_slope_box)
-
-# ── Drag ──────────────────────────────────────────────────────────────────────
-def on_press(event):
-    if event.inaxes != ax_main or event.button != 1:
-        return
-    offsets = dot_scatter.get_offsets()
-    if len(offsets) == 0:
-        return
-    dx, dy = offsets[0]
-    disp_dot   = ax_main.transData.transform([dx, dy])
-    disp_click = np.array([event.x, event.y])
-    if np.linalg.norm(disp_dot - disp_click) < 18:
-        state["dragging"] = True
-
-def on_motion(event):
-    if not state["dragging"] or event.inaxes != ax_main:
-        return
-    new_mass = float(np.clip(event.xdata, WEIGHT_MIN, WEIGHT_MAX))
-    state["dot_mass"] = new_mass
-    slope = state["slope_deg"]
-    df    = calc_force(new_mass, slope)
-    dot_scatter.set_offsets([[new_mass, df]])
-    dot_vline.set_xdata([new_mass])
-    dot_hline.set_ydata([df])
-    readout_text.set_text(f"Weight: {new_mass:.0f} kg\nForce:  {df:.1f} N")
-    fig.canvas.draw_idle()
-
-def on_release(event):
-    state["dragging"] = False
-
-fig.canvas.mpl_connect("button_press_event",   on_press)
-fig.canvas.mpl_connect("motion_notify_event",  on_motion)
-fig.canvas.mpl_connect("button_release_event", on_release)
-
-# ── Hint ──────────────────────────────────────────────────────────────────────
-fig.text(0.5, 0.005,
-         "Type a slope in the box to update the curve.  "
-         "Click and drag the purple dot to read off weight/force pairs.",
-         ha="center", fontsize=8, color="#888888", style="italic")
-
-# ── Init ──────────────────────────────────────────────────────────────────────
-draw()
-plt.show()
+st.caption("Use the slope input and weight slider above to explore the relationship. "
+           "The purple dot marks the selected weight/force pair.")
